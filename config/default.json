@@ -56,7 +56,9 @@
     "recency_window_years": 6,
     "recency_max_hits": 0,
     "preprint_scoop_check": true,
+    "preprint_max_hits": 0,
     "triviality_check_mesh_tree": true,
+    "triviality_synonym_cosine": 0.97,
     "require_distinct_tree_branches": true
   },
 
