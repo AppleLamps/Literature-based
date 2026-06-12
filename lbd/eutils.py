@@ -40,6 +40,10 @@ class ResponseCache:
     def __init__(self, path: str):
         self.path = path
         self._conn = sqlite3.connect(path)
+        # WAL + NORMAL synchronous keeps the per-write commits cheap (no fsync on
+        # every cache insert) while remaining crash-safe for a read-through cache.
+        self._conn.execute("PRAGMA journal_mode=WAL")
+        self._conn.execute("PRAGMA synchronous=NORMAL")
         self._conn.execute(
             "CREATE TABLE IF NOT EXISTS cache (key TEXT PRIMARY KEY, body TEXT, ts REAL)"
         )

@@ -76,6 +76,17 @@ class Cascade:
         self.europepmc = europepmc
         self.embedder = embedder
         self.field = cfg["corpus"]["a_literature_query_field"]
+        # Tree numbers are resolved through the (cached) E-utilities client, but
+        # the parse/regex work still repeats per concept. Memoize within a run so
+        # the constant A-term is resolved once, not once per candidate.
+        self._tree_cache: Dict[str, List[str]] = {}
+
+    def _tree_numbers_cached(self, name: str) -> List[str]:
+        cached = self._tree_cache.get(name)
+        if cached is None:
+            cached = _tree_numbers(self.eutils, name)
+            self._tree_cache[name] = cached
+        return cached
 
     # ---- individual gates ------------------------------------------------
     def gate_plausibility(self, cand: Candidate) -> GateResult:
@@ -115,8 +126,8 @@ class Cascade:
                     {"embed_sim": sim},
                 )
         if self.cfg["cascade"]["triviality_check_mesh_tree"]:
-            a_trees = _tree_numbers(self.eutils, a_name)
-            c_trees = _tree_numbers(self.eutils, cand.c_term)
+            a_trees = self._tree_numbers_cached(a_name)
+            c_trees = self._tree_numbers_cached(cand.c_term)
             cand.flags["c_tree_numbers"] = c_trees
             reason = _is_hierarchical(a_trees, c_trees)
             if reason:

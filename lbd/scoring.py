@@ -10,7 +10,7 @@ A candidate C is scored by how strongly and how redundantly it is bridged to A:
 from __future__ import annotations
 
 import math
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from .discovery import Candidate
 
