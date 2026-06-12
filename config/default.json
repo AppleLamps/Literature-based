@@ -3,7 +3,7 @@
 
   "eutils": {
     "base_url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils",
-    "email": "lucasmillen@gmail.com",
+    "email": "your-email@example.com",
     "tool": "lbd-pipeline",
     "api_key": null,
     "requests_per_second": 3,
@@ -58,8 +58,7 @@
     "preprint_scoop_check": true,
     "preprint_max_hits": 0,
     "triviality_check_mesh_tree": true,
-    "triviality_synonym_cosine": 0.97,
-    "require_distinct_tree_branches": true
+    "triviality_synonym_cosine": 0.97
   },
 
   "output": {

@@ -99,6 +99,9 @@ class EutilsClient:
                 return True
         return False
 
+    # HTTP statuses worth retrying; any other 4xx is a permanent client error.
+    _RETRYABLE_STATUS = (429, 500, 502, 503, 504)
+
     def _request(self, endpoint: str, params: Dict[str, Any], method: str = "GET", force: bool = False) -> str:
         key = ResponseCache.make_key(endpoint, params)
         if not force:
@@ -108,8 +111,9 @@ class EutilsClient:
         full_params = dict(params)
         full_params.update(self._identity())
         url = f"{self.base}/{endpoint}"
+        max_retries = self.cfg["max_retries"]
         last_err: Optional[Exception] = None
-        for attempt in range(self.cfg["max_retries"]):
+        for attempt in range(max_retries):
             self.limiter.wait()
             try:
                 if method == "POST":
@@ -123,13 +127,18 @@ class EutilsClient:
                         raise requests.HTTPError("malformed/empty E-utilities response")
                     self.cache.put(key, resp.text)
                     return resp.text
-                if resp.status_code in (429, 500, 502, 503, 504):
-                    raise requests.HTTPError(f"HTTP {resp.status_code}")
-                resp.raise_for_status()
-            except (requests.RequestException, requests.HTTPError) as exc:
+                if resp.status_code not in self._RETRYABLE_STATUS:
+                    resp.raise_for_status()  # permanent client error -> fail fast
+                raise requests.HTTPError(f"HTTP {resp.status_code}")
+            except requests.RequestException as exc:
+                # A non-retryable HTTP status (raised by raise_for_status) carries a
+                # response; re-raise it immediately instead of burning the budget.
+                resp_obj = getattr(exc, "response", None)
+                if resp_obj is not None and resp_obj.status_code not in self._RETRYABLE_STATUS:
+                    raise
                 last_err = exc
-                sleep_s = self.cfg["backoff_base_seconds"] * (2 ** attempt)
-                time.sleep(sleep_s)
+                if attempt < max_retries - 1:  # don't sleep after the final attempt
+                    time.sleep(self.cfg["backoff_base_seconds"] * (2 ** attempt))
         raise RuntimeError(f"E-utilities request failed after retries: {endpoint} {params}: {last_err}")
 
     # ---- high level ------------------------------------------------------

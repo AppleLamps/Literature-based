@@ -32,6 +32,12 @@ _diag*.py
 _scratch*
 *.tmp
 
+# --- Secrets / local environment ---
+.env
+.env.*
+*.key
+secrets.json
+
 # --- Local model / HF caches if ever placed in-tree ---
 .cache/
 models/

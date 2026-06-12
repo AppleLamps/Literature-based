@@ -18,8 +18,13 @@ class EuropePmcClient:
     def __init__(self, cfg: Dict[str, Any]):
         self.cfg = cfg["europepmc"]
         self.base = self.cfg["base_url"].rstrip("/")
+        # Reuse the E-utilities contact (honors the NCBI_EMAIL env override) so a
+        # real contact email lives in one place and is never hardcoded here.
+        eutils_cfg = cfg.get("eutils", {})
+        email = eutils_cfg.get("email", "your-email@example.com")
+        tool = eutils_cfg.get("tool", "lbd-pipeline")
         self.session = requests.Session()
-        self.session.headers.update({"User-Agent": "lbd-pipeline (mailto:lucasmillen@gmail.com)"})
+        self.session.headers.update({"User-Agent": f"{tool} (mailto:{email})"})
 
     def search_count(self, query: str, *, sources: Optional[list] = None) -> Dict[str, Any]:
         """Return {'count': int, 'sample': [titles]} for a Europe PMC query.

@@ -76,7 +76,7 @@ def run_discovery(
         print(f"  A-term '{a_input}' -> MeSH descriptor '{a_name}'", file=sys.stderr)
 
     a_lit = discovery.gather_a_literature(
-        eutils, cfg, a_query, a_name, maxdate=maxdate, mindate=mindate
+        eutils, cfg, a_query, a_name, maxdate=maxdate, mindate=mindate, mesh_tree=mesh_tree
     )
     if verbose:
         print(f"  A corpus: {a_lit.corpus_size} records "
@@ -108,7 +108,7 @@ def run_discovery(
     )
 
     if run_cascade:
-        cascade = Cascade(cfg, eutils, europepmc, embedder)
+        cascade = Cascade(cfg, eutils, europepmc, embedder, mesh_tree=mesh_tree)
         top_k = cascade_top_k or cfg["output"]["max_hypotheses"]
         if verbose:
             print(f"  Running novelty/false-positive cascade on top {top_k} candidates...",

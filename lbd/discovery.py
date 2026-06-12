@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from .eutils import EutilsClient
 
@@ -67,11 +67,33 @@ def _stop_set(cfg: Dict[str, Any]) -> Set[str]:
     return {d.lower() for d in cfg["mesh_stoplist"]["descriptors"]}
 
 
+def _make_tree_block(cfg: Dict[str, Any], mesh_tree) -> Optional[Callable[[str], bool]]:
+    """Build a predicate that blocks descriptors sitting under broad, non-bridging
+    MeSH branch roots (configured ``mesh_stoplist.tree_prefix_block``): publication
+    types, geography, health-care/anthropology/humanities hubs, equipment, etc.
+
+    Returns ``None`` when the block list is empty or the offline tree map is
+    unavailable, so the tally is unchanged in that case.
+    """
+    prefixes = cfg["mesh_stoplist"].get("tree_prefix_block", [])
+    if not prefixes or mesh_tree is None or not getattr(mesh_tree, "available", False):
+        return None
+
+    def blocked(name: str) -> bool:
+        trees = mesh_tree.trees(name)
+        if not trees:
+            return False  # unknown descriptor: don't block
+        return any(tn.startswith(p) for tn in trees for p in prefixes)
+
+    return blocked
+
+
 def _tally_mesh(
     records: Dict[str, Dict[str, Any]],
     stop: Set[str],
     only_major: bool,
     exclude: Set[str],
+    block_fn: Optional[Callable[[str], bool]] = None,
 ) -> Tuple[Dict[str, int], Dict[str, List[str]]]:
     """Tally descriptor -> document count, plus example PMIDs per descriptor."""
     counts: Dict[str, int] = defaultdict(int)
@@ -83,6 +105,8 @@ def _tally_mesh(
             name = m["name"]
             lc = name.lower()
             if lc in stop or lc in exclude_lc:
+                continue
+            if block_fn is not None and block_fn(name):
                 continue
             if only_major and not m.get("major"):
                 continue
@@ -103,6 +127,7 @@ def gather_a_literature(
     *,
     maxdate: Optional[str] = None,
     mindate: Optional[str] = None,
+    mesh_tree=None,
 ) -> ALiterature:
     """Phase 4.1: gather A's literature and the B-terms linked to A."""
     corpus_cfg = cfg["corpus"]
@@ -113,8 +138,9 @@ def gather_a_literature(
     )
     records = client.efetch_mesh(pmids)
     stop = _stop_set(cfg)
+    block_fn = _make_tree_block(cfg, mesh_tree)
     counts, pmid_map = _tally_mesh(
-        records, stop, corpus_cfg["only_major_topic"], exclude={a_name, a_query}
+        records, stop, corpus_cfg["only_major_topic"], exclude={a_name, a_query}, block_fn=block_fn
     )
     a_cooccurring = set(counts.keys())
     # Keep only B-terms above the minimum A-B co-occurrence threshold.
@@ -151,6 +177,7 @@ def expand_b_and_collect_c(
     """Phases 4.2-4.3: expand each B to its C-terms and collect C not linked to A."""
     corpus_cfg = cfg["corpus"]
     stop = _stop_set(cfg)
+    block_fn = _make_tree_block(cfg, mesh_tree)
     field = corpus_cfg["a_literature_query_field"]
     min_bc = corpus_cfg["min_bc_cooccurrence"]
 
@@ -184,7 +211,9 @@ def expand_b_and_collect_c(
         if not b_pmids:
             continue
         records = client.efetch_mesh(b_pmids)
-        c_counts, c_pmid_map = _tally_mesh(records, stop, corpus_cfg["only_major_topic"], exclude={b})
+        c_counts, c_pmid_map = _tally_mesh(
+            records, stop, corpus_cfg["only_major_topic"], exclude={b}, block_fn=block_fn
+        )
         kept = 0
         for c_term, bc_count in c_counts.items():
             if bc_count < min_bc:

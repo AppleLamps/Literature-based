@@ -86,11 +86,13 @@ class Cascade:
         eutils: EutilsClient,
         europepmc: EuropePmcClient,
         embedder=None,
+        mesh_tree=None,
     ):
         self.cfg = cfg
         self.eutils = eutils
         self.europepmc = europepmc
         self.embedder = embedder
+        self.mesh_tree = mesh_tree
         self.field = cfg["corpus"]["a_literature_query_field"]
         # Tree numbers are resolved through the (cached) E-utilities client, but
         # the parse/regex work still repeats per concept. Memoize within a run so
@@ -100,9 +102,19 @@ class Cascade:
     def _tree_numbers_cached(self, name: str) -> List[str]:
         cached = self._tree_cache.get(name)
         if cached is None:
-            cached = _tree_numbers(self.eutils, name)
+            cached = self._resolve_tree_numbers(name)
             self._tree_cache[name] = cached
         return cached
+
+    def _resolve_tree_numbers(self, name: str) -> List[str]:
+        # Prefer the offline MeSH map already loaded for this run: c_term and
+        # a_name are canonical MeSH descriptors, so a local lookup avoids the
+        # 2-4 E-utilities calls resolve_mesh would otherwise make per candidate.
+        if self.mesh_tree is not None and getattr(self.mesh_tree, "available", False):
+            trees = self.mesh_tree.trees(name)
+            if trees:
+                return trees
+        return _tree_numbers(self.eutils, name)
 
     # ---- individual gates ------------------------------------------------
     def gate_plausibility(self, cand: Candidate) -> GateResult:
