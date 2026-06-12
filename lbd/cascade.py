@@ -154,9 +154,16 @@ class Cascade:
 
     def gate_recency_scoop(self, a_query: str, cand: Candidate, this_year: int) -> GateResult:
         f = self.field
+        win = self.cfg["cascade"]["recency_window_years"]
+        # The recent A+C count is a date-restricted subset of the all-dates count
+        # already measured by gate_real_gap. If that total is zero, the recent
+        # count is necessarily zero too, so skip the redundant esearch.
+        if cand.flags.get("ac_cooccurrence") == 0:
+            cand.flags["recent_pubmed_hits"] = 0
+            return GateResult("recency_scoop", "pass",
+                              f"no recent PubMed A+C link in last {win} years (A+C never co-occur)")
         a_clause = f'"{a_query}"{f}' if f else a_query
         c_clause = f'"{cand.c_term}"{f}' if f else cand.c_term
-        win = self.cfg["cascade"]["recency_window_years"]
         mindate = f"{this_year - win}/01/01"
         n = self.eutils.esearch_count(f"{a_clause} AND {c_clause}", mindate=mindate, maxdate=f"{this_year}/12/31")
         cand.flags["recent_pubmed_hits"] = n
