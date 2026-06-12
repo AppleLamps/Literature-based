@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lbd"
+version = "0.1.0"
+description = "Literature-based discovery (Swanson ABC) pipeline over PubMed MeSH co-occurrence"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "lucasmillen" }]
+dependencies = [
+    "requests",
+    "pandas",
+    "numpy",
+    "scipy",
+    "networkx",
+    "scikit-learn",
+    "sentence-transformers",
+]
+
+[project.scripts]
+lbd = "lbd.cli:main"
+
+[tool.setuptools]
+packages = ["lbd"]
+
+[tool.setuptools.package-data]
+lbd = []

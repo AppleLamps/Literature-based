@@ -1,0 +1,52 @@
+# --- Python virtual environment ---
+.venv/
+venv/
+env/
+
+# --- Byte-compiled / caches ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# --- LBD response/data cache (large, derived, re-downloadable) ---
+# eutils_cache.sqlite can reach multiple GB; mesh_tree_*.json is rebuilt on demand.
+cache/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# --- Generated discovery outputs ---
+# These are produced by `python -m lbd run`; regenerate rather than commit.
+hypotheses.csv
+results/briefs/*.md
+
+# --- Logs / scratch ---
+*.log
+_diag*.py
+_scratch*
+*.tmp
+
+# --- Local model / HF caches if ever placed in-tree ---
+.cache/
+models/
+
+# --- OS / editor cruft ---
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+*~
+
+# --- Build artifacts ---
+build/
+dist/
+*.egg-info/
+.eggs/

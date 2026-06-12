@@ -1,0 +1,105 @@
+{
+  "_comment": "Default configuration for the LBD pipeline. Every threshold lives here, nothing is hard-coded in the source. Override any key with --config myconfig.json (deep-merged over these defaults).",
+
+  "eutils": {
+    "base_url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils",
+    "email": "lucasmillen@gmail.com",
+    "tool": "lbd-pipeline",
+    "api_key": null,
+    "requests_per_second": 3,
+    "timeout": 60,
+    "max_retries": 5,
+    "backoff_base_seconds": 1.0,
+    "efetch_batch_size": 200
+  },
+
+  "europepmc": {
+    "base_url": "https://www.ebi.ac.uk/europepmc/webservices/rest",
+    "timeout": 60,
+    "max_retries": 4
+  },
+
+  "corpus": {
+    "a_literature_query_field": "[MeSH Terms]",
+    "a_max_pmids": 2000,
+    "b_top_n": 200,
+    "b_max_pmids": 1200,
+    "min_ab_cooccurrence": 3,
+    "min_bc_cooccurrence": 2,
+    "only_major_topic": false,
+    "candidate_tree_filter": true,
+    "candidate_tree_whitelist": ["D"],
+    "_candidate_tree_comment": "When A is a disease, keep only C-candidates that are substances/interventions (MeSH tree D = Chemicals and Drugs). This is the semantic-type filter that separates candidate therapies (fish oil, magnesium) from co-occurring anatomy/procedure/disease hubs. Set candidate_tree_filter=false to consider all concept types.",
+    "mesh_year": 2025
+  },
+
+  "scoring": {
+    "edge_transform": "log1p",
+    "use_idf_weighting": true,
+    "use_b_tree_weighting": true,
+    "_b_tree_comment": "Per-intermediate semantic-type weight by the B-term's primary MeSH tree letter. Physiological processes (G) are the mechanistic bridges LBD wants; disease co-membership (C) and diagnostic methods (E)/anatomy (A) are weak bridges (shared patients, not a mechanism). Chemicals (D) are moderately informative intermediates.",
+    "b_tree_weights": {
+      "G": 2.5, "D": 1.3, "C": 0.45, "E": 0.3, "A": 0.5,
+      "F": 0.6, "B": 0.3, "default": 0.8
+    },
+    "min_bridge_terms": 2,
+    "min_bridge_score": 0.0,
+    "directional_bonus": 0.15,
+    "specificity_refine": true,
+    "specificity_refine_top_k": 2000,
+    "specificity_alpha": 1.6,
+    "specificity_min_bridges": 2
+  },
+
+  "cascade": {
+    "gap_max_cooccurrence": 0,
+    "recency_window_years": 6,
+    "recency_max_hits": 0,
+    "preprint_scoop_check": true,
+    "triviality_check_mesh_tree": true,
+    "require_distinct_tree_branches": true
+  },
+
+  "output": {
+    "max_hypotheses": 40,
+    "top_b_per_hypothesis": 8,
+    "pmids_per_edge": 3
+  },
+
+  "validation": {
+    "_comment": "A target C-term must appear within the top-N ranked candidates under the publication freeze for the case to PASS.",
+    "top_n": 50
+  },
+
+  "mesh_stoplist": {
+    "_comment": "MeSH descriptors that co-occur with almost everything and carry no mechanistic bridging signal: check tags, demographics, study/publication descriptors, geography, and the most generic top-level hubs. Used to filter B-terms (intermediates) and C-candidates. Matched case-insensitively on descriptor name.",
+    "descriptors": [
+      "Humans", "Animals", "Male", "Female", "Adult", "Aged", "Aged, 80 and over",
+      "Middle Aged", "Young Adult", "Adolescent", "Child", "Child, Preschool",
+      "Infant", "Infant, Newborn", "Pregnancy", "Mice", "Rats", "Rabbits",
+      "Dogs", "Cats", "Guinea Pigs", "Swine", "Cattle", "Rats, Sprague-Dawley",
+      "Rats, Wistar", "Rats, Inbred Strains", "Mice, Inbred C57BL", "Mice, Inbred Strains",
+      "Time Factors", "Reproducibility of Results", "Sensitivity and Specificity",
+      "Retrospective Studies", "Prospective Studies", "Cross-Sectional Studies",
+      "Cohort Studies", "Case-Control Studies", "Follow-Up Studies", "Longitudinal Studies",
+      "Double-Blind Method", "Random Allocation", "Treatment Outcome", "Risk Factors",
+      "Risk Assessment", "Incidence", "Prevalence", "Predictive Value of Tests",
+      "Severity of Illness Index", "Models, Biological", "Models, Animal", "Models, Theoretical",
+      "Reproducibility", "Disease Models, Animal", "Dose-Response Relationship, Drug",
+      "Cells, Cultured", "Tumor Cells, Cultured", "Cell Line", "Cell Line, Tumor",
+      "United States", "Europe", "Japan", "China", "Great Britain", "Canada",
+      "Quality of Life", "Survival Rate", "Survival Analysis", "Age Factors",
+      "Sex Factors", "Aging", "Phenotype", "Genotype", "Polymorphism, Single Nucleotide",
+      "Gene Expression Regulation", "Signal Transduction", "Up-Regulation", "Down-Regulation",
+      "Apoptosis", "Cell Proliferation", "Inflammation", "Oxidative Stress",
+      "Reactive Oxygen Species", "Biomarkers", "Prognosis", "Comorbidity",
+      "Health Status", "Public Health", "Socioeconomic Factors", "Cause of Death",
+      "Hospitalization", "Patient Compliance", "Questionnaires", "Surveys and Questionnaires",
+      "Pilot Projects", "Feasibility Studies", "Reference Values", "Statistics as Topic",
+      "Data Interpretation, Statistical", "Algorithms", "Software", "Internet",
+      "Animals, Newborn", "Animals, Genetically Modified", "Mice, Knockout", "Mice, Transgenic"
+    ],
+    "_qualifier_comment": "Skip these very broad MeSH branch roots (by tree-number prefix) when proposing intermediates and candidates.",
+    "tree_prefix_block": ["V", "Z", "N", "I", "K", "L", "M01", "E05", "E07"]
+  }
+}
