@@ -14,6 +14,7 @@ Gate order (cheap-to-expensive, so we prune before spending network calls):
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -50,6 +51,21 @@ def _tree_numbers(client: EutilsClient, name: str) -> List[str]:
     if resolved:
         return resolved.get("tree_numbers", [])
     return []
+
+
+def _phrase_contained(a: str, b: str) -> bool:
+    """True if one concept name contains the other as a whole-word phrase.
+
+    Word-boundary matching, not raw substring: "Migraine" is contained in
+    "Migraine Disorders" (a genuine near-synonym/hierarchy smell), but "Gout"
+    is *not* contained in "Gouty Arthritis" (distinct concepts that a raw
+    substring test would wrongly flag).
+    """
+    a_lc, b_lc = a.lower().strip(), b.lower().strip()
+    if not a_lc or not b_lc:
+        return False
+    short, long = (a_lc, b_lc) if len(a_lc) <= len(b_lc) else (b_lc, a_lc)
+    return re.search(rf"\b{re.escape(short)}\b", long) is not None
 
 
 def _is_hierarchical(a_trees: List[str], c_trees: List[str]) -> Optional[str]:
@@ -110,19 +126,19 @@ class Cascade:
         )
 
     def gate_triviality(self, a_name: str, cand: Candidate) -> GateResult:
-        a_lc, c_lc = a_name.lower(), cand.c_term.lower()
-        if a_lc in c_lc or c_lc in a_lc:
+        if _phrase_contained(a_name, cand.c_term):
             return GateResult(
                 "triviality", "fail",
                 f"name containment between '{a_name}' and '{cand.c_term}'",
             )
         if self.embedder and self.embedder.available:
+            syn_thresh = self.cfg["cascade"]["triviality_synonym_cosine"]
             sim = self.embedder.similarity(a_name, cand.c_term)
             cand.flags["embed_sim"] = round(sim, 3) if sim is not None else None
-            if sim is not None and sim >= 0.97:
+            if sim is not None and sim >= syn_thresh:
                 return GateResult(
                     "triviality", "fail",
-                    f"near-synonym (embedding cosine {sim:.3f} >= 0.97)",
+                    f"near-synonym (embedding cosine {sim:.3f} >= {syn_thresh})",
                     {"embed_sim": sim},
                 )
         if self.cfg["cascade"]["triviality_check_mesh_tree"]:
@@ -182,7 +198,7 @@ class Cascade:
         if res["count"] < 0:
             return GateResult("preprint_scoop", "warn", "Europe PMC unreachable; preprint scoop unverified")
         cand.flags["preprint_hits"] = res["count"]
-        if res["count"] > self.cfg["cascade"]["recency_max_hits"]:
+        if res["count"] > self.cfg["cascade"]["preprint_max_hits"]:
             titles = "; ".join(s["title"][:80] for s in res["sample"][:2])
             return GateResult("preprint_scoop", "fail",
                               f"{res['count']} preprint(s) already link A+C: {titles}",

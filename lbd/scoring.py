@@ -55,11 +55,16 @@ def score_candidate(cand: Candidate, cfg: Dict[str, Any], total_candidates: int 
 
 
 def rank_candidates(candidates, cfg: Dict[str, Any]):
+    """Score every candidate in place and record its raw (pre-specificity) score.
+
+    Final ordering is produced by ``refine_scores_with_specificity``, so this
+    pass does not sort; it returns the same list for convenience.
+    """
     total = len(candidates)
     for c in candidates:
         score_candidate(c, cfg, total_candidates=total)
         c.flags["raw_score"] = c.score
-    return sorted(candidates, key=lambda c: c.score, reverse=True)
+    return candidates
 
 
 def refine_scores_with_specificity(
@@ -106,7 +111,12 @@ def refine_scores_with_specificity(
 
     for c in candidates:
         n_c = c.flags.get("c_marginal", median_nc)
-        denom = math.log1p(max(n_c, 1)) ** alpha
+        # A C-term co-occurs with at least one B in bc_count records, so its true
+        # global marginal cannot be below that. Floor here so an implausibly low
+        # marginal (e.g. a query/parse mismatch returning ~0) cannot shrink the
+        # denominator and inflate a rare/artifact candidate's specificity score.
+        evidence_floor = max((b.bc_count for b in c.bridges), default=1)
+        denom = math.log1p(max(n_c, evidence_floor, 1)) ** alpha
         raw = c.flags.get("raw_score", c.score)
         c.score = raw / denom if denom > 0 else 0.0
 
